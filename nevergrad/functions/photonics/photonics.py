@@ -18,7 +18,7 @@ import typing as tp
 from pathlib import Path
 import numpy as np
 from scipy.linalg import toeplitz
-# pylint: disable=blacklisted-name,too-many-locals,too-many-arguments
+# pylint: disable=blacklisted-name,too-many-locals,too-many-arguments,too-many-statements,too-many-branches
 
 
 def bragg(X: np.ndarray) -> float:
@@ -229,22 +229,21 @@ def morpho(X: np.ndarray) -> float:
     return cost
 
 
-# Toutes les fonctions necessaires à l'execution de photosic
 i = complex(0, 1)
 
 
-def epscSi(lam):
+def epscSi(lam: np.ndarray) -> np.ndarray:
     a = np.arange(250, 1500, 5)
-    e = np.load(Path(__file__).with_name("epscSi_e.npy"))  # saved with np.save(filename, e) and dumped in this folder
-    x = np.min(np.sign(lam - a))
+    e = np.load(Path(__file__).with_name("epsilon_epscSi.npy"))  # saved with np.save(filename, e) and dumped in this folder
+    # x = np.min(np.sign(lam - a))  # TODO unused
     y = np.argmin(np.sign(lam - a))
     # [x,y]=np.min((np.sign(lam-a)))
     y = y - 1
     epsilon = (e[y + 1] - e[y]) / (a[y + 1] - a[y]) * (lam - a[y]) + e[y]
-    return epsilon
+    return epsilon  # type: ignore
 
 
-def cascade2(A, B):
+def cascade2(A: np.ndarray, B: np.ndarray) -> np.ndarray:
     """
     This function takes two 2x2 matrices A and B, that are assumed to be scattering matrices
     and combines them assuming A is the "upper" one, and B the "lower" one, physically.
@@ -259,14 +258,14 @@ def cascade2(A, B):
     return S
 
 
-def solar(lam):
+def solar(lam: np.ndarray) -> np.ndarray:
     a2 = np.arange(280, 400, 0.5)
     a3 = np.arange(400, 1700, 1)
     a4 = np.arange(1700, 4001, 5)
     a = np.concatenate([a2, a3, [1700, 1702], a4])
-    e = np.load(Path(__file__).with_name("solar_e.npy"))  # saved with np.save(filename, e) and dumped in this folder
+    e = np.load(Path(__file__).with_name("epsilon_solar.npy"))  # saved with np.save(filename, e) and dumped in this folder
     jsc = np.interp(lam, a, e)
-    return jsc
+    return jsc  # type: ignore
 
 
 def cf_photosic_reference(X: np.ndarray) -> float:
@@ -288,15 +287,19 @@ def cf_photosic_reference(X: np.ndarray) -> float:
             f = Mu
         else:
             f = Epsilon
-        k0 = 2 * pi / lam
+        k0 = 2 * np.pi / lam
         g = Type.size
-        alpha = np.sqrt(Epsilon[Type[0]] * Mu[Type[0]]) * k0 * sin(theta)
+        alpha = np.sqrt(Epsilon[Type[0]] * Mu[Type[0]]) * k0 * np.sin(theta)
         gamma = np.sqrt(Epsilon[Type] * Mu[Type] * k0**2 - np.ones(g) * alpha**2)
         if np.real(Epsilon[Type[0]]) < 0 and np.real(Mu[Type[0]]) < 0:
             gamma[0] = -gamma[0]
         if g > 2:
             gamma[1:g - 2] = gamma[1:g - 2] * (1 - 2 * (np.imag(gamma[1:g - 2]) < 0))
-        if np.real(Epsilon[Type[g - 1]]) < 0 and np.real(Mu[Type[g - 1]]) < 0 and np.real(np.sqrt(Epsilon[Type[g - 1]] * Mu[Type[g - 1]] * k0**2 - alpha**2)) != 0:
+        if (
+            np.real(Epsilon[Type[g - 1]]) < 0
+            and np.real(Mu[Type[g - 1]]) < 0
+            and np.real(np.sqrt(Epsilon[Type[g - 1]] * Mu[Type[g - 1]] * k0**2 - alpha**2)) != 0
+        ):
             gamma[g - 1] = -np.sqrt(Epsilon[Type[g - 1]] * Mu[Type[g - 1]] * k0**2 - alpha**2)
         else:
             gamma[g - 1] = np.sqrt(Epsilon[Type[g - 1]] * Mu[Type[g - 1]] * k0**2 - alpha**2)
@@ -318,9 +321,9 @@ def cf_photosic_reference(X: np.ndarray) -> float:
         for j in range(2 * g - 2):
             A[j + 1] = cascade2(A[j], T[j + 1])
             H[j + 1] = cascade2(T[2 * g - 2 - j], H[j])
-        r = A[len(A) - 1][0, 0]
+        # r = A[len(A) - 1][0, 0]  # TODO: unused
         t = A[len(A) - 1][1, 0]
-        I = np.zeros(((2 * g, 2, 2)), dtype=complex)
+        I = np.zeros(((2 * g, 2, 2)), dtype=complex)  # noqa
         for j in range(len(T) - 1):
             I[j][0, 0] = A[j][1, 0] / (1 - A[j][1, 1] * H[len(T) - 2 - j][0, 0])
             I[j][0, 1] = A[j][1, 1] * H[len(T) - 2 - j][0, 1] / (1 - A[j][1, 1] * H[len(T) - 2 - j][0, 0])
@@ -344,9 +347,9 @@ def cf_photosic_reference(X: np.ndarray) -> float:
                 w = w + 1 - np.mod(j + 1, 2)
         tmp = abs(-np.diff(poynting))
         absorb = tmp[np.arange(0, 2 * g, 2)]
-        r = A[len(A) - 1][0, 0]
+        # r = A[len(A) - 1][0, 0]  # TODO unused?
         t = A[len(A) - 1][1, 0]
-        R = abs(r)**2
+        # R = abs(r)**2  # TODO: unused ?
         T = abs(t)**2 * gamma[g - 1] * f[Type[0]] / (gamma[0] * f[Type[g - 1]])
         scc[k] = solar(vlam[k])
         Ab[k] = absorb[len(absorb) - 1]
@@ -354,7 +357,7 @@ def cf_photosic_reference(X: np.ndarray) -> float:
     j_sc = np.trapz(scc * Ab, vlam)
     CE = j_sc / max_scc
     cost = 1 - CE
-    return cost
+    return cost  # type: ignore
 
 
 def cf_photosic_realist(eps_and_d: np.ndarray) -> float:
@@ -365,7 +368,7 @@ def cf_photosic_realist(eps_and_d: np.ndarray) -> float:
     lam_min = 375
     lam_max = 750
     n_lam = 100
-    theta = 0 * 180 / pi
+    theta = 0 * 180 / np.pi
     vlam = np.linspace(lam_min, lam_max, n_lam)
     scc = np.zeros(n_lam)
     Ab = np.zeros(n_lam)
@@ -373,7 +376,7 @@ def cf_photosic_realist(eps_and_d: np.ndarray) -> float:
     for k in range(n_lam):
         # absorb=absorption(epsd,theta*pi/180,lam[k])
         lam = vlam[k]
-        Epsilon = np.append(1, np.append(epsd[0], epsSia(lam)))
+        Epsilon = np.append(1, np.append(epsd[0], epscSi(lam)))  # TODO: was epsSia (typo?)
         Mu = np.ones(Epsilon.size)
         Type = np.arange(0, epsd[0].size + 2)
         hauteur = np.append(0, np.append(epsd[1], 30000))
@@ -387,9 +390,9 @@ def cf_photosic_realist(eps_and_d: np.ndarray) -> float:
             f = Mu
         else:
             f = Epsilon
-        k0 = 2 * pi / lam
+        k0 = 2 * np.pi / lam
         g = Type.size
-        alpha = np.sqrt(Epsilon[Type[0]] * Mu[Type[0]]) * k0 * sin(theta)
+        alpha = np.sqrt(Epsilon[Type[0]] * Mu[Type[0]]) * k0 * np.sin(theta)
         gamma = np.sqrt(Epsilon[Type] * Mu[Type] * k0**2 - np.ones(g) * alpha**2)
         # Be cautious if the upper medium is a negative index one.
         if np.real(Epsilon[Type[0]]) < 0 and np.real(Mu[Type[0]]) < 0:
@@ -398,7 +401,11 @@ def cf_photosic_realist(eps_and_d: np.ndarray) -> float:
         if g > 2:
             gamma[1:g - 2] = gamma[1:g - 2] * (1 - 2 * (np.imag(gamma[1:g - 2]) < 0))
     # Outgoing wave condition for the last medium
-        if np.real(Epsilon[Type[g - 1]]) < 0 and np.real(Mu[Type[g - 1]]) < 0 and np.real(np.sqrt(Epsilon[Type[g - 1]] * Mu[Type[g - 1]] * k0**2 - alpha**2)) != 0:
+        if (
+            np.real(Epsilon[Type[g - 1]]) < 0 and
+            np.real(Mu[Type[g - 1]]) < 0 and
+            np.real(np.sqrt(Epsilon[Type[g - 1]] * Mu[Type[g - 1]] * k0**2 - alpha**2)) != 0
+        ):
             gamma[g - 1] = -np.sqrt(Epsilon[Type[g - 1]] * Mu[Type[g - 1]] * k0**2 - alpha**2)
         else:
             gamma[g - 1] = np.sqrt(Epsilon[Type[g - 1]] * Mu[Type[g - 1]] * k0**2 - alpha**2)
@@ -423,11 +430,11 @@ def cf_photosic_realist(eps_and_d: np.ndarray) -> float:
         for j in range(2 * g - 2):
             A[j + 1] = cascade(A[j], T[j + 1])
             H[j + 1] = cascade(T[2 * g - 2 - j], H[j])
-    # reflexion
-        r = A[len(A) - 1][0, 0]
-    # transmission
+        # reflexion
+        # r = A[len(A) - 1][0, 0]  # TODO unused
+        # transmission
         t = A[len(A) - 1][1, 0]
-        I = np.zeros(((2 * g, 2, 2)), dtype=complex)
+        I = np.zeros(((2 * g, 2, 2)), dtype=complex)  # noqa
         # And let us compute the intermediate coefficients from the scattering matrixes
         for j in range(len(T) - 1):
             I[j][0, 0] = A[j][1, 0] / (1 - A[j][1, 1] * H[len(T) - 2 - j][0, 0])
@@ -460,11 +467,11 @@ def cf_photosic_realist(eps_and_d: np.ndarray) -> float:
         # absorb=np.zeros(g,dtype=complex)
         absorb = tmp[np.arange(0, 2 * g, 2)]
         # reflection coefficient of the whole structure
-        r = A[len(A) - 1][0, 0]
+        # r = A[len(A) - 1][0, 0] # TODO unused
         # transmission coefficient of the whole structure
         t = A[len(A) - 1][1, 0]
         # Energy reflexion coefficient;
-        R = abs(r)**2
+        # R = abs(r)**2
         # Energy transmission coefficient;
         T = abs(t)**2 * gamma[g - 1] * f[Type[0]] / (gamma[0] * f[Type[g - 1]])
 
@@ -474,4 +481,4 @@ def cf_photosic_realist(eps_and_d: np.ndarray) -> float:
     j_sc = np.trapz(scc * Ab, vlam)
     CE = j_sc / max_scc
     cost = 1 - CE
-    return cost
+    return cost  # type: ignore
